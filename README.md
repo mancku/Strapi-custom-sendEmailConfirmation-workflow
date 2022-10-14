@@ -4,7 +4,6 @@
 ## TLDR;
 Re-doing the *register* method with almost a copy-paste to be able to call your own *sendConfirmationEmail* method that can be (again) almost a copy-paste but getting the URL from the environment.
 
-### I uploaded an example [here](https://github.com/mancku/Strapi-custom-sendEmailConfirmation-workflow).
 
 * *env.example* ➡️ has the CALLBACK_URL value. If you are using env file you can place it there. For dev purposes I also uploaded the VS Code's launch.json file where the environment variables can also be placed.
 
