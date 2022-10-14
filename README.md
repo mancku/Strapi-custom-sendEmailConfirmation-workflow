@@ -1,57 +1,42 @@
-# 🚀 Getting started with Strapi
 
-Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html) (CLI) which lets you scaffold and manage your project in seconds.
+# Answering a [question on Strapi Forums](https://forum.strapi.io/t/how-to-configure-email-confirmation-redirection-url-dynamically/22671)
 
-### `develop`
+## TLDR;
+Re-doing the *register* method with almost a copy-paste to be able to call your own *sendConfirmationEmail* method that can be (again) almost a copy-paste but getting the URL from the environment.
 
-Start your Strapi application with autoReload enabled. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-develop)
+### I uploaded an example [here](https://github.com/mancku/Strapi-custom-sendEmailConfirmation-workflow).
 
-```
-npm run develop
-# or
-yarn develop
-```
+* *env.example* ➡️ has the CALLBACK_URL value. If you are using env file you can place it there. For dev purposes I also uploaded the VS Code's launch.json file where the environment variables can also be placed.
 
-### `start`
+* *src/api/utils/services/email.js* ➡️ a new ***sendConfirmationService*** has been created. It's almost the same as the original one but uses **process.env.CALLBACK_URL** for the URL.
 
-Start your Strapi application with autoReload disabled. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-start)
+* *src/extensions/user-permissions/strapi.server.js* ➡️ a new ***register*** method overriding the original one. It's almost the same as the original one but calls **await strapi.service('api::utils.email').sendConfirmationEmail(sanitizedUser);**.
 
-```
-npm run start
-# or
-yarn start
-```
 
-### `build`
+## 👇🏻 **Here some insights as to why I solved it that way** 
 
-Build your admin panel. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-build)
-
-```
-npm run build
-# or
-yarn build
+First, the method responsible for sending the email is the *sendConfirmationEmail* inside *@strapi/plugin-users-permissions/server/services/user*.
+Inside that method you can (at least currently in Strapi version 4.4.3) find this code where you can see the URL being **almost** hardcoded:
+```js
+const apiPrefix = strapi.config.get('api.rest.prefix');
+    settings.message = await userPermissionService.template(settings.message, {
+      URL: urlJoin(getAbsoluteServerUrl(strapi.config), apiPrefix, '/auth/email-confirmation'),
+      SERVER_URL: getAbsoluteServerUrl(strapi.config),
+      ADMIN_URL: getAbsoluteAdminUrl(strapi.config),
+      USER: sanitizedUserInfo,
+      CODE: confirmationToken,
+    });
 ```
 
-## ⚙️ Deployment
+So, my first thought would've been to override the whole *sendConfirmationEmail*  method following the [Plugins Extensions](https://docs.strapi.io/developer-docs/latest/development/plugins-extension.html#within-the-extensions-folder) documentation, but I've taken a look at what register method does in *@strapi/plugin-users-permissions/server/controllers/auth* and it gets the *sendConfirmationEmail* function on the fly, so even if overridden it will still call the original function:
+```js
+ if (settings.email_confirmation) {
+      try {
+        await getService('user').sendConfirmationEmail(sanitizedUser);
+      } catch (err) {
+        throw new ApplicationError(err.message);
+      }
 
-Strapi gives you many possible deployment options for your project. Find the one that suits you on the [deployment section of the documentation](https://docs.strapi.io/developer-docs/latest/setup-deployment-guides/deployment.html).
-
-## 📚 Learn more
-
-- [Resource center](https://strapi.io/resource-center) - Strapi resource center.
-- [Strapi documentation](https://docs.strapi.io) - Official Strapi documentation.
-- [Strapi tutorials](https://strapi.io/tutorials) - List of tutorials made by the core team and the community.
-- [Strapi blog](https://docs.strapi.io) - Official Strapi blog containing articles made by the Strapi team and the community.
-- [Changelog](https://strapi.io/changelog) - Find out about the Strapi product updates, new features and general improvements.
-
-Feel free to check out the [Strapi GitHub repository](https://github.com/strapi/strapi). Your feedback and contributions are welcome!
-
-## ✨ Community
-
-- [Discord](https://discord.strapi.io) - Come chat with the Strapi community including the core team.
-- [Forum](https://forum.strapi.io/) - Place to discuss, ask questions and find answers, show your Strapi project and get feedback or just talk with other Community members.
-- [Awesome Strapi](https://github.com/strapi/awesome-strapi) - A curated list of awesome things related to Strapi.
-
----
-
-<sub>🤫 Psst! [Strapi is hiring](https://strapi.io/careers).</sub>
+      return ctx.send({ user: sanitizedUser });
+    }
+```
